@@ -68,18 +68,18 @@ export abstract class BasePgService {
     let rSql = false;
     if (condition || (condition === 0 && condition !== "")) {
       rSql = true;
-      for(let i = 0; i < params.length; i++) {
+      for (let i = 0; i < params.length; i++) {
         const param = params[i];
         if (param instanceof Array) {
           // 将这个? 替换成 $1,$2,$3
           const replaceStr = [];
-          for(let j = 0; j < param.length; j++) {
-            replaceStr.push('$' + (this.sqlParams.length + j + 1));
+          for (let j = 0; j < param.length; j++) {
+            replaceStr.push("$" + (this.sqlParams.length + j + 1));
           }
           this.sqlParams = this.sqlParams.concat(...params);
-          sql = sql.replace('?', replaceStr.join(','));
+          sql = sql.replace("?", replaceStr.join(","));
         } else {
-          sql = sql.replace('?', '$' + (this.sqlParams.length + 1));
+          sql = sql.replace("?", "$" + (this.sqlParams.length + 1));
           this.sqlParams.push(param);
         }
       }
@@ -130,22 +130,22 @@ export abstract class BasePgService {
     }
     let newParams = [];
     // sql没处理过?的情况下
-    if(sql.includes('?')){
+    if (sql.includes("?")) {
       for (const item of params) {
         // 如果是数组，将这个? 替换成 $1,$2,$3
         if (item instanceof Array) {
           const replaceStr = [];
-          for(let i = 0; i < item.length; i++) {
-            replaceStr.push('$' + (newParams.length + i + 1));
+          for (let i = 0; i < item.length; i++) {
+            replaceStr.push("$" + (newParams.length + i + 1));
           }
-          newParams.push(...item)
-          sql = sql.replace('?', replaceStr.join(','));
+          newParams.push(...item);
+          sql = sql.replace("?", replaceStr.join(","));
         } else {
-          sql = sql.replace('?', '$' + (newParams.length + 1));
+          sql = sql.replace("?", "$" + (newParams.length + 1));
           newParams.push(item);
         }
       }
-    }else{
+    } else {
       newParams = params;
     }
     this.sqlParams = [];
@@ -202,20 +202,20 @@ export abstract class BasePgService {
 
   /**
    * 将mysql语句转换为postgres语句
-   * @param sql 
-   * @returns 
+   * @param sql
+   * @returns
    */
   protected convertToPostgres(sql) {
-      // 首先确保表名被正确引用
-      sql = sql.replace(/(?<!")(\b\w+\b)\.(?!\w+")/g, '"$1".');
-      // 然后确保字段名被正确引用
-      return sql.replace(/\.(\w+)(?!\w)/g, '."$1"');
+    // 首先确保表名被正确引用
+    sql = sql.replace(/(?<!")(\b\w+\b)\.(?!\w+")/g, '"$1".');
+    // 然后确保字段名被正确引用
+    return sql.replace(/\.(\w+)(?!\w)/g, '."$1"');
   }
 
   /**
    * 查询sql中的参数个数
-   * @param sql 
-   * @returns 
+   * @param sql
+   * @returns
    */
   protected countDollarSigns(sql) {
     const matches = sql.match(/\$\d+/g);
@@ -238,25 +238,25 @@ export abstract class BasePgService {
       isExport = false,
       maxExportLimit,
     } = query;
-    sql = `SELECT * FROM (${sql}) a `
+    sql = `SELECT * FROM (${sql}) a `;
     if (order && sort && autoSort) {
       if (!(await this.paramSafetyCheck(order + sort))) {
         throw new CoolValidateException("非法传参~");
       }
-      sql += `ORDER BY a."${order}" ${this.checkSort(sort)}`
+      sql += `ORDER BY a."${order}" ${this.checkSort(sort)}`;
     }
     let cutParams = 0;
     let paramCount = this.countDollarSigns(sql);
     if (isExport && maxExportLimit > 0) {
-        this.sqlParams.push(parseInt(maxExportLimit));
-        cutParams = 1;
-        sql += ` LIMIT $${paramCount+1}`;
+      this.sqlParams.push(parseInt(maxExportLimit));
+      cutParams = 1;
+      sql += ` LIMIT $${paramCount + 1}`;
     }
     if (!isExport) {
-        this.sqlParams.push(parseInt(size));
-        this.sqlParams.push((page - 1) * size);
-        cutParams = 2;
-        sql += ` LIMIT $${ paramCount + 1} OFFSET $${ paramCount+ 2 }`;
+      this.sqlParams.push(parseInt(size));
+      this.sqlParams.push((page - 1) * size);
+      cutParams = 2;
+      sql += ` LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     }
     let params = [];
     params = params.concat(this.sqlParams);
@@ -351,33 +351,37 @@ export abstract class BasePgService {
    * 新增|修改
    * @param param 数据
    */
-  async addOrUpdate(param: any | any[], type: 'add' | 'update' = 'add') {
+  async addOrUpdate(param: any | any[], type: "add" | "update" = "add") {
     if (!this.entity) throw new CoolValidateException(ERRINFO.NOENTITY);
     delete param.createTime;
     // 判断是否是批量操作
     if (param instanceof Array) {
-        param.forEach((item) => {
-          item.updateTime = new Date();
-          item.createTime = new Date();
-        });
-        await this.entity.save(param);
-    } else{
-      const upsert = this._coolConfig.crud?.upsert || 'normal';
-      if (type == 'update') {
-        if(upsert == 'save') {
-          const info = await this.entity.findOneBy({id: param.id})
+      param.forEach((item) => {
+        item.updateTime = new Date();
+        item.createTime = new Date();
+      });
+      await this.entity.save(param);
+    } else {
+      const upsert = this._coolConfig.crud?.upsert || "normal";
+      if (type == "update") {
+        if (upsert == "save") {
+          const info = await this.entity.findOneBy({ id: param.id });
           param = {
             ...info,
-            ...param
-          }
+            ...param,
+          };
         }
         param.updateTime = new Date();
-        upsert == 'normal'? await this.entity.update(param.id, param): await this.entity.save(param);
+        upsert == "normal"
+          ? await this.entity.update(param.id, param)
+          : await this.entity.save(param);
       }
-      if(type =='add'){
+      if (type == "add") {
         param.createTime = new Date();
         param.updateTime = new Date();
-        upsert == 'normal'? await this.entity.insert(param): await this.entity.save(param);
+        upsert == "normal"
+          ? await this.entity.insert(param)
+          : await this.entity.save(param);
       }
     }
   }
@@ -473,10 +477,10 @@ export abstract class BasePgService {
             const keyWordLikeFields = option.keyWordLikeFields || [];
             for (let i = 0; i < option.keyWordLikeFields?.length || 0; i++) {
               let column = keyWordLikeFields[i];
-              column = column.includes('.')? column: `a.${column}`;
+              column = column.includes(".") ? column : `a.${column}`;
               const values = {};
               values[`keyWord${i}`] = keyWord;
-              qb.orWhere(`${column} like :keyWord${i}`,values);
+              qb.orWhere(`${column} like :keyWord${i}`, values);
               this.sqlParams.push(keyWord);
             }
           })
@@ -495,13 +499,13 @@ export abstract class BasePgService {
           const c = {};
           let column;
           // 如果key有包含.的情况下操作
-          if(typeof key === "string" && key.includes('.')){
-            const keys = key.split('.');
+          if (typeof key === "string" && key.includes(".")) {
+            const keys = key.split(".");
             const lastKey = keys.pop();
-            key = {requestParam: lastKey, column: key};
-            column = key
-          }else{
-            column = `a.${key}`
+            key = { requestParam: lastKey, column: key };
+            column = key;
+          } else {
+            column = `a.${key}`;
           }
           // 单表字段无别名的情况下操作
           if (typeof key === "string") {
@@ -556,7 +560,48 @@ export abstract class BasePgService {
     sqlArr.push("FROM");
     // 取sqls的最后一个
     sqlArr.push(sqls[sqls.length - 1]);
+    sqlArr.forEach((item, index) => {
+      if (item.includes("ORDER BY")) {
+        sqlArr[index] = this.replaceOrderByPrefix(item);
+      }
+    });
     return sqlArr.join(" ");
+  }
+
+  /**
+   * 替换sql中的表别名
+   * @param sql
+   * @returns
+   */
+  replaceOrderByPrefix(sql) {
+    // 使用正则表达式匹配 ORDER BY 后面的部分
+    // 这里假设 ORDER BY 后面跟着的是由空格分隔的字段名，且字段名由双引号包围
+    const orderByRegex =
+      /ORDER BY\s+("[^"]+_[^"]+")(\s*(ASC|DESC)?\s*(,\s*"[^"]+_[^"]+")*)/gi;
+
+    // 定义替换函数
+    // @ts-ignore
+    function replaceMatch(match, p1, p2) {
+      // 将 p1 中的 "a_" 替换为 "a."
+      const replacedField = p1.replace(/a_([^"]+)/g, "a.$1");
+      // 如果有其他字段，递归调用替换函数
+      const replacedRest = p2.replace(/("[^"]+_)/g, (m, p) =>
+        p.replace("a_", "a.")
+      );
+      // 组合替换后的字段和其他部分
+      return `ORDER BY ${replacedField.replace(/"/g, "")}${replacedRest.replace(
+        /"/g,
+        ""
+      )}`;
+    }
+
+    // 使用替换函数替换匹配到的内容
+    const replacedOrderBySql = sql.replace(orderByRegex, replaceMatch);
+
+    // 移除所有双引号
+    const sqlWithoutQuotes = replacedOrderBySql.replace(/"/g, "");
+
+    return sqlWithoutQuotes;
   }
 
   /**
@@ -567,30 +612,32 @@ export abstract class BasePgService {
    */
   protected matchColumn(select: string[] = [], field: string) {
     for (const column of select) {
-          // 检查字段是否有别名，考虑 'AS' 关键字的不同大小写形式
-          const aliasPattern = new RegExp(`\\b\\w+\\s+as\\s+${field}\\b`, 'i');
-          const aliasMatch = column.match(aliasPattern);
-          if (aliasMatch) {
-              // 提取别名前的字段和表名
-              const fieldPattern = new RegExp(`(\\w+)\\.(\\w+)\\s+as\\s+${field}`, 'i');
-              const fieldMatch = column.match(fieldPattern);
-              if (fieldMatch) {
-                  // 返回匹配到的表名
-                  return fieldMatch[1];
-              }
-          }
+      // 检查字段是否有别名，考虑 'AS' 关键字的不同大小写形式
+      const aliasPattern = new RegExp(`\\b\\w+\\s+as\\s+${field}\\b`, "i");
+      const aliasMatch = column.match(aliasPattern);
+      if (aliasMatch) {
+        // 提取别名前的字段和表名
+        const fieldPattern = new RegExp(
+          `(\\w+)\\.(\\w+)\\s+as\\s+${field}`,
+          "i"
+        );
+        const fieldMatch = column.match(fieldPattern);
+        if (fieldMatch) {
+          // 返回匹配到的表名
+          return fieldMatch[1];
+        }
+      }
 
-          // 检查字段是否直接在选择列表中
-          const fieldPattern = new RegExp(`\\b(\\w+)\\.${field}\\b`, 'i');
-          const fieldMatch = column.match(fieldPattern);
-          if (fieldMatch) {
-              // 如果直接匹配到字段，返回字段所属的表名
-              return fieldMatch[1];
-          }
+      // 检查字段是否直接在选择列表中
+      const fieldPattern = new RegExp(`\\b(\\w+)\\.${field}\\b`, "i");
+      const fieldMatch = column.match(fieldPattern);
+      if (fieldMatch) {
+        // 如果直接匹配到字段，返回字段所属的表名
+        return fieldMatch[1];
+      }
     }
 
     // 如果没有匹配到任何特定的表或别名，返回默认的 'a' 表
-    return 'a';
+    return "a";
   }
-
 }
