@@ -58,6 +58,7 @@ export abstract class BaseService {
   async init() {
     const services = {
       mysql: this.baseMysqlService,
+      mariadb: this.baseMysqlService,
       postgres: this.basePgService,
       sqlite: this.baseSqliteService,
     };
@@ -209,6 +210,7 @@ export abstract class BaseService {
    */
   async add(param: any | any[]): Promise<Object> {
     if (!this.entity) throw new CoolValidateException(ERRINFO.NOENTITY);
+    delete param.id;
     await this.addOrUpdate(param, "add");
     return {
       id:
