@@ -52,6 +52,8 @@ export abstract class BasePlugin {
   cache: FsCacheStore | MidwayCache;
   /** 插件 */
   pluginService: PluginService;
+  /** 基础目录位置 */
+  baseDir: string;
 
   setCtx(ctx: IMidwayContext) {
     this.ctx = ctx;
@@ -59,6 +61,8 @@ export abstract class BasePlugin {
 
   setApp(app: IMidwayApplication) {
     this.app = app;
+    this.baseDir = app.getBaseDir();
+    this.configDir();
   }
 
   constructor() {}
@@ -96,12 +100,30 @@ export abstract class BasePlugin {
     this.pluginInfo = pluginInfo;
     this.ctx = ctx;
     this.app = app;
+    this.baseDir = process.cwd();
+    if (this.app) {
+      this.baseDir = this.app?.getBaseDir();
+    }
+    this.configDir();
     this.cache = CoolCacheStore({});
     if (other) {
       this.cache = other.cache;
       this.pluginService = other.pluginService;
     }
     await this.ready();
+  }
+
+  /**
+   * 处理配置目录
+   */
+  private configDir() {
+    // 替换\为/
+    this.baseDir = this.baseDir.replace(/\\/g, "/");
+    let config = this.pluginInfo.config || {};
+    config = JSON.stringify(config);
+    this.pluginInfo.config = JSON.parse(
+      config.replace(/@baseDir/g, this.baseDir)
+    );
   }
 
   /**
