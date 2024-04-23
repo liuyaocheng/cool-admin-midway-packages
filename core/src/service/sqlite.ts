@@ -69,23 +69,23 @@ export abstract class BaseSqliteService {
     let rSql = false;
     if (condition || (condition === 0 && condition !== "")) {
       rSql = true;
-      for(let i = 0; i < params.length; i++) {
+      for (let i = 0; i < params.length; i++) {
         const param = params[i];
         if (param instanceof Array) {
           // 将这个? 替换成 $1,$2,$3
           const replaceStr = [];
-          for(let j = 0; j < param.length; j++) {
-            replaceStr.push('$' + (this.sqlParams.length + j + 1));
+          for (let j = 0; j < param.length; j++) {
+            replaceStr.push("$" + (this.sqlParams.length + j + 1));
           }
           this.sqlParams = this.sqlParams.concat(...params);
-          sql = sql.replace('?', replaceStr.join(','));
+          sql = sql.replace("?", replaceStr.join(","));
         } else {
-          sql = sql.replace('?', '$' + (this.sqlParams.length + 1));
+          sql = sql.replace("?", "$" + (this.sqlParams.length + 1));
           this.sqlParams.push(param);
         }
       }
     }
-    return (rSql ? sql : "").replace(/\$\d+/g, '?');
+    return (rSql ? sql : "").replace(/\$\d+/g, "?");
   }
 
   /**
@@ -126,26 +126,29 @@ export abstract class BaseSqliteService {
    */
   async nativeQuery(sql, params?, connectionName?) {
     if (_.isEmpty(params)) {
-        params = this.sqlParams;
-      }
-      let newParams = [];
-      // sql没处理过?的情况下
-      for (const item of params) {
-            // 如果是数组，将这个? 替换成 $1,$2,$3
-        if (item instanceof Array) {
-            const replaceStr = [];
-            for(let i = 0; i < item.length; i++) {
-                replaceStr.push('$' + (newParams.length + i + 1));
-            }
-            newParams.push(...item)
-            sql = sql.replace('?', replaceStr.join(','));
-            } else {
-            sql = sql.replace('?', '$' + (newParams.length + 1));
-            newParams.push(item);
+      params = this.sqlParams;
+    }
+    let newParams = [];
+    // sql没处理过?的情况下
+    for (const item of params) {
+      // 如果是数组，将这个? 替换成 $1,$2,$3
+      if (item instanceof Array) {
+        const replaceStr = [];
+        for (let i = 0; i < item.length; i++) {
+          replaceStr.push("$" + (newParams.length + i + 1));
         }
+        newParams.push(...item);
+        sql = sql.replace("?", replaceStr.join(","));
+      } else {
+        sql = sql.replace("?", "$" + (newParams.length + 1));
+        newParams.push(item);
       }
-      this.sqlParams = [];
-      return await this.getOrmManager(connectionName).query(sql.replace(/\$\d+/g, '?'), newParams || []);
+    }
+    this.sqlParams = [];
+    return await this.getOrmManager(connectionName).query(
+      sql.replace(/\$\d+/g, "?"),
+      newParams || []
+    );
   }
 
   /**
@@ -325,33 +328,37 @@ export abstract class BaseSqliteService {
    * 新增|修改
    * @param param 数据
    */
-  async addOrUpdate(param: any | any[], type: 'add' | 'update' = 'add') {
+  async addOrUpdate(param: any | any[], type: "add" | "update" = "add") {
     if (!this.entity) throw new CoolValidateException(ERRINFO.NOENTITY);
     delete param.createTime;
     // 判断是否是批量操作
     if (param instanceof Array) {
-        param.forEach((item) => {
-          item.updateTime = new Date();
-          item.createTime = new Date();
-        });
-        await this.entity.save(param);
-    } else{
-      const upsert = this._coolConfig.crud?.upsert || 'normal';
-      if (type == 'update') {
-        if(upsert == 'save') {
-          const info = await this.entity.findOneBy({id: param.id})
+      param.forEach((item) => {
+        item.updateTime = new Date();
+        item.createTime = new Date();
+      });
+      await this.entity.save(param);
+    } else {
+      const upsert = this._coolConfig.crud?.upsert || "normal";
+      if (type == "update") {
+        if (upsert == "save") {
+          const info = await this.entity.findOneBy({ id: param.id });
           param = {
             ...info,
-            ...param
-          }
+            ...param,
+          };
         }
         param.updateTime = new Date();
-        upsert == 'normal'? await this.entity.update(param.id, param): await this.entity.save(param);
+        upsert == "normal"
+          ? await this.entity.update(param.id, param)
+          : await this.entity.save(param);
       }
-      if(type =='add'){
+      if (type == "add") {
         param.createTime = new Date();
         param.updateTime = new Date();
-        upsert == 'normal'? await this.entity.insert(param): await this.entity.save(param);
+        upsert == "normal"
+          ? await this.entity.insert(param)
+          : await this.entity.save(param);
       }
     }
   }
@@ -466,14 +473,14 @@ export abstract class BaseSqliteService {
         for (let key of option.fieldEq) {
           const c = {};
           // 如果key有包含.的情况下操作
-          if(typeof key === "string" && key.includes('.')){
-            const keys = key.split('.');
+          if (typeof key === "string" && key.includes(".")) {
+            const keys = key.split(".");
             const lastKey = keys.pop();
-            key = {requestParam: lastKey, column: key};
+            key = { requestParam: lastKey, column: key };
           }
           // 单表字段无别名的情况下操作
           if (typeof key === "string") {
-            if (query[key] || (query[key] == 0 && query[key] == "")) {
+            if (query[key] || (query[key] == 0 && query[key] != "")) {
               c[key] = query[key];
               const eq = query[key] instanceof Array ? "in" : "=";
               if (eq === "in") {
@@ -481,7 +488,7 @@ export abstract class BaseSqliteService {
               } else {
                 find.andWhere(`${key} ${eq} :${key}`, c);
               }
-            //   this.sqlParams.push(query[key]);
+              //   this.sqlParams.push(query[key]);
             }
           } else {
             if (
@@ -495,7 +502,7 @@ export abstract class BaseSqliteService {
               } else {
                 find.andWhere(`${key.column} ${eq} :${key.column}`, c);
               }
-            //   this.sqlParams.push(query[key.requestParam]);
+              //   this.sqlParams.push(query[key.requestParam]);
             }
           }
         }
@@ -526,5 +533,4 @@ export abstract class BaseSqliteService {
     sqlArr.push(sqls[sqls.length - 1]);
     return sqlArr.join(" ");
   }
-
 }

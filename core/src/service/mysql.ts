@@ -447,7 +447,7 @@ export abstract class BaseMysqlService {
           }
           // 单表字段无别名的情况下操作
           if (typeof key === "string") {
-            if (query[key] || (query[key] == 0 && query[key] == "")) {
+            if (query[key] || (query[key] == 0 && query[key] != "")) {
               c[key] = query[key];
               const eq = query[key] instanceof Array ? "in" : "=";
               if (eq === "in") {
