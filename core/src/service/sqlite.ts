@@ -67,7 +67,7 @@ export abstract class BaseSqliteService {
    */
   setSql(condition, sql, params) {
     let rSql = false;
-    if (condition || (condition === 0 && condition !== "")) {
+    if (condition || condition === 0) {
       rSql = true;
       for (let i = 0; i < params.length; i++) {
         const param = params[i];
@@ -423,8 +423,7 @@ export abstract class BaseSqliteService {
           for (const item of wheres) {
             if (
               item.length == 2 ||
-              (item.length == 3 &&
-                (item[2] || (item[2] === 0 && item[2] != "")))
+              (item.length == 3 && (item[2] || item[2] === 0))
             ) {
               for (const key in item[1]) {
                 this.sqlParams.push(item[1][key]);
@@ -447,7 +446,7 @@ export abstract class BaseSqliteService {
         }
       }
       // 关键字模糊搜索
-      if (keyWord || (keyWord == 0 && keyWord != "")) {
+      if (keyWord || keyWord === 0) {
         keyWord = `%${keyWord}%`;
         find.andWhere(
           new Brackets((qb) => {
@@ -480,7 +479,7 @@ export abstract class BaseSqliteService {
           }
           // 单表字段无别名的情况下操作
           if (typeof key === "string") {
-            if (query[key] || (query[key] == 0 && query[key] != "")) {
+            if (query[key] || query[key] == 0) {
               c[key] = query[key];
               const eq = query[key] instanceof Array ? "in" : "=";
               if (eq === "in") {
@@ -491,10 +490,7 @@ export abstract class BaseSqliteService {
               //   this.sqlParams.push(query[key]);
             }
           } else {
-            if (
-              query[key.requestParam] ||
-              (query[key.requestParam] == 0 && query[key.requestParam] !== "")
-            ) {
+            if (query[key.requestParam] || query[key.requestParam] == 0) {
               c[key.column] = query[key.requestParam];
               const eq = query[key.requestParam] instanceof Array ? "in" : "=";
               if (eq === "in") {
