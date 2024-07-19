@@ -1,14 +1,13 @@
-import { ILogger, IMidwayApplication } from "@midwayjs/core";
+import { ILogger, IMidwayApplication, Scope, ScopeEnum } from "@midwayjs/core";
 import { App, Config, Inject, Logger, Provide } from "@midwayjs/decorator";
-import * as fs from "fs";
-import { CoolModuleConfig } from "./config";
-import * as path from "path";
 import { InjectDataSource, TypeORMDataSourceManager } from "@midwayjs/typeorm";
-import { DataSource } from "typeorm";
-import { CoolEventManager } from "../event";
-import { CoolModuleMenu } from "./menu";
+import * as fs from "fs";
 import * as _ from "lodash";
-import { Scope, ScopeEnum } from "@midwayjs/core";
+import * as path from "path";
+import { DataSource, Equal } from "typeorm";
+import { CoolEventManager } from "../event";
+import { CoolModuleConfig } from "./config";
+import { CoolModuleMenu } from "./menu";
 
 /**
  * 模块sql
@@ -43,24 +42,33 @@ export class CoolModuleImport {
   @Inject()
   coolModuleMenu: CoolModuleMenu;
 
+  initJudge: "file" | "db";
+
+  /**
+   * 初始化
+   */
   async init() {
+    this.initJudge = this.coolConfig.initJudge;
+    if (!this.initJudge) {
+      this.initJudge = "file";
+    }
     // 是否需要导入
     if (this.coolConfig.initDB) {
       const modules = this.coolModuleConfig.modules;
-      const importLockPath = path.join(
-        `${this.app.getBaseDir()}`,
-        "..",
-        "lock",
-        "db"
-      );
-      if (!fs.existsSync(importLockPath)) {
-        fs.mkdirSync(importLockPath, { recursive: true });
-      }
+      const metadatas = await this.getDbMetadatas();
       setTimeout(async () => {
         for (const module of modules) {
-          const lockPath = path.join(importLockPath, module + ".db.lock");
-          if (!fs.existsSync(lockPath)) {
-            await this.initDataBase(module, lockPath);
+          if (this.initJudge == "file") {
+            const { exist, lockPath } = this.checkFileExist(module);
+            if (!exist) {
+              await this.initDataBase(module, metadatas, lockPath);
+            }
+          }
+          if (this.initJudge == "db") {
+            const exist = await this.checkDbExist(module, metadatas);
+            if (!exist) {
+              await this.initDataBase(module, metadatas);
+            }
           }
         }
         this.coolEventManager.emit("onDBInit", {});
@@ -70,11 +78,59 @@ export class CoolModuleImport {
   }
 
   /**
+   * 获取数据库元数据
+   */
+  async getDbMetadatas() {
+    // 获得所有的实体
+    const entityMetadatas = this.defaultDataSource.entityMetadatas;
+    const metadatas = _.mapValues(
+      _.keyBy(entityMetadatas, "tableName"),
+      "target"
+    );
+    return metadatas;
+  }
+
+  /**
+   * 检查数据是否存在
+   * @param module
+   * @param metadatas
+   */
+  async checkDbExist(module: string, metadatas) {
+    const cKey = `init_db_${module}`;
+    const repository = this.defaultDataSource.getRepository(
+      metadatas["base_sys_conf"]
+    );
+    const data = await repository.findOneBy({ cKey: Equal(cKey) });
+    return !!data;
+  }
+
+  /**
+   * 检查文件是否存在
+   * @param module
+   */
+  checkFileExist(module: string) {
+    const importLockPath = path.join(
+      `${this.app.getBaseDir()}`,
+      "..",
+      "lock",
+      "db"
+    );
+    if (!fs.existsSync(importLockPath)) {
+      fs.mkdirSync(importLockPath, { recursive: true });
+    }
+    const lockPath = path.join(importLockPath, module + ".db.lock");
+    return {
+      exist: fs.existsSync(lockPath),
+      lockPath,
+    };
+  }
+
+  /**
    * 导入数据库
    * @param module
    * @param lockPath 锁定导入
    */
-  async initDataBase(module: string, lockPath: string) {
+  async initDataBase(module: string, metadatas, lockPath?: string) {
     // 计算耗时
     const startTime = new Date().getTime();
     // 模块路径
@@ -83,12 +139,6 @@ export class CoolModuleImport {
     const dataPath = `${modulePath}/db.json`;
     // 判断文件是否存在
     if (fs.existsSync(dataPath)) {
-      // 获得所有的实体
-      const entityMetadatas = this.defaultDataSource.entityMetadatas;
-      const metadatas = _.mapValues(
-        _.keyBy(entityMetadatas, "tableName"),
-        "target"
-      );
       // 读取数据
       const data = JSON.parse(fs.readFileSync(dataPath).toString() || "{}");
       // 导入数据
@@ -107,12 +157,53 @@ export class CoolModuleImport {
         }
       }
       const endTime = new Date().getTime();
-      fs.writeFileSync(lockPath, `time consuming：${endTime - startTime}ms`);
+      await this.lockImportData(
+        module,
+        metadatas,
+        lockPath,
+        endTime - startTime
+      );
       this.coreLogger.info(
         "\x1B[36m [cool:core] midwayjs cool core init " +
           module +
           " database complete \x1B[0m"
       );
+    }
+  }
+
+  /**
+   * 锁定导入
+   * @param module
+   * @param metadatas
+   * @param lockPath
+   * @param time
+   */
+  async lockImportData(
+    module: string,
+    metadatas,
+    lockPath: string,
+    time: number
+  ) {
+    if (this.initJudge == "file") {
+      fs.writeFileSync(lockPath, `time consuming：${time}ms`);
+    }
+    if (this.initJudge == "db") {
+      const repository = this.defaultDataSource.getRepository(
+        metadatas["base_sys_conf"]
+      );
+      if (this.ormConfig.default.type == "postgres") {
+        await repository.save(
+          repository.create({
+            cKey: `init_db_${module}`,
+            cValue: `time consuming：${time}ms`,
+          })
+        );
+      } else {
+        await repository.insert({
+          cKey: `init_db_${module}`,
+          cValue: `time consuming：${time}ms`,
+        });
+      }
     }
   }
 

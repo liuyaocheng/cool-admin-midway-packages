@@ -28,6 +28,8 @@ export interface CoolConfig {
   eps?: boolean;
   /** 是否自动导入模块菜单 */
   initMenu?: boolean;
+  /** 判断是否初始化的方式 */
+  initJudge: "file" | "db";
   // 实体配置
   //   entity?: {
   //     primaryType: "uuid" | "increment" | "rowid" | "identity";
